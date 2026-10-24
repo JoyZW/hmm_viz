@@ -2,12 +2,106 @@
 
 You are building a static, browser-based teaching tool for hidden Markov models, deployed to GitHub Pages. This document is the complete brief. Where it is silent, choose the simplest thing consistent with it and note the choice in the README.
 
-**Read [CONTEXT.md](CONTEXT.md) first.** It is the project glossary. Use its terms exactly in UI text, identifiers and comments (e.g. "toss", "coin state", "coin path", "posterior", "Viterbi path", "enumeration table", "trellis"), and avoid the words it lists under _Avoid_.
+This document is self-contained: the glossary (§0) and descriptions of the three lecture reference images (§0.1) are included below. The images themselves live in `docs/img/` in the repo; open them if you can, but the descriptions are sufficient to build from.
 
-Reference images from the course lecture are in [docs/img/](docs/img/):
-- `hidden_path.png` — the Viterbi trellis by hand for T T H. Tab 1's trellis should look like this.
-- `output-table.png` — the enumeration table for T T H. Tab 1's table should look like this.
-- `posterior-chart.png` — posterior line + Viterbi step line for the 20-toss example. Tab 2's posterior chart should look like this at short lengths.
+---
+
+## 0. Glossary
+
+Use these terms exactly in UI text, identifiers and comments, and avoid the words listed under _Avoid_.
+
+### The model
+
+**Toss**: A single observed outcome, Heads (H) or Tails (T).
+_Avoid_: observation, emission (as a noun for the data), flip
+
+**Toss sequence**: The ordered tosses we actually see; the observed data.
+_Avoid_: observations, input, data string
+
+**Coin state**: The hidden coin in use at a toss: Fair (F) or Biased (B).
+_Avoid_: hidden state, label, regime
+
+**Coin path**: Any assignment of a coin state to every toss in a toss sequence.
+_Avoid_: hidden path (in UI), state sequence, q
+
+**Starting probabilities**: The probability that the first toss uses each coin state.
+_Avoid_: initial distribution, priors, pi
+
+**Transition probabilities**: The probability of the coin state at one toss given the coin state at the previous toss.
+_Avoid_: switch probabilities, A matrix
+
+**Emission probabilities**: The probability of H or T given the coin state.
+_Avoid_: output probabilities, b, coin bias
+
+### The three questions
+
+**Likelihood**: The probability of the toss sequence summed over every coin path — "how likely are the tosses?"
+_Avoid_: evidence, marginal, score
+
+**Joint probability**: The probability of one specific coin path together with the toss sequence.
+_Avoid_: path probability, path score
+
+**Posterior**: The probability the coin was Biased at toss t, given the whole toss sequence — "which coin at toss t?"
+_Avoid_: confidence, belief, smoothed probability
+
+**Viterbi path**: The coin path with the highest joint probability — "which sequence of coins is most likely?"
+_Avoid_: most likely path, best path, decoded path, hidden path
+
+### Teaching artefacts
+
+**Enumeration table**: The table listing every coin path for a short toss sequence with its per-toss factors and joint probability; summing, filtering and maximising it answers all three questions by brute force.
+_Avoid_: output table, path table
+
+**Trellis**: The two-row (F/B) by n-column grid of the Viterbi or forward recursion, with arrows between consecutive columns.
+_Avoid_: grid, lattice, DP table
+
+**Precision method**: How products of many small probabilities are kept representable: Naive, Rescaled, or Log-space.
+_Avoid_: scaling option, numeric mode
+
+**Underflow**: A probability too small for a double (below ~1e-308) collapsing to exactly 0.
+_Avoid_: overflow, precision loss
+
+Lecture notation is kept in equations: δₜ(s) (Viterbi value), φₜ(s) (Viterbi backpointer), αₜ(s) / βₜ(s) (forward / backward), Pr(q, tosses) (joint probability of coin path q).
+
+### 0.1 Reference images (in `docs/img/` in the repo)
+
+All three show the lecture defaults (§3). Reproduce their content and layout; exact styling may differ.
+
+**`docs/img/hidden_path.png` — "Viterbi by hand, toss 3 of T T H"** (the model for Tab 1's trellis, §6 Stage 3).
+- Title at top-left, underlined by a thick yellow rule.
+- Left: a small circle labelled **start**. Two thick arrows, each labelled **0.5**, go from it to the two nodes of the first column.
+- Three columns headed **"t = 1: Tail"**, **"t = 2: Tail"**, **"t = 3: Head"**. Each column has two circular nodes, **Fair** on top and **Biased** below. Each node holds three lines: the coin state name (bold), the emission probability of that column's toss in small purple text (`b = 0.5` for Fair; `b = 0.9` for Biased on Tails, `b = 0.1` for Biased on Heads), and the node's δ value in bold: t = 1: F **0.25**, B **0.45**; t = 2: F **0.119**, B **0.324**; t = 3: F **0.0564**, B **0.0259**.
+- Between consecutive columns there are four arrows: horizontal F→F labelled **0.95** and B→B labelled **0.80**, plus crossing diagonals F→B labelled **0.05** and B→F labelled **0.20**.
+- Winning arrows are thick and dark navy. Between t = 1 and t = 2 the losing diagonals (F→B, B→F) are thin and pale grey-blue (faded). Between t = 2 and t = 3, the column being computed, the losing diagonals are thin but still dark: all candidates are visible while they are compared, and the winners (F→F, B→B) are thick.
+- The column being computed (t = 3) has a pale yellow highlight behind it.
+- Below the diagram are two equations, in large math type, with a curly under-brace beneath each candidate product labelled "from F" and "from B":
+  `δ₃(F) = max(0.119 · 0.95, 0.324 · 0.20) · 0.5 = 0.0564,   φ₃(F) = F`
+  `δ₃(B) = max(0.119 · 0.05, 0.324 · 0.80) · 0.1 = 0.0259,   φ₃(B) = B`
+
+**`docs/img/output-table.png` — enumeration table for T T H** (the model for Tab 1's table, §6 Stage 1).
+- The header row is dark navy with white bold text: **Hidden path | toss 1: T | toss 2: T | toss 3: H | Pr(q, T T H)**. In the app, label the first column "Coin path" per the glossary.
+- Eight body rows with alternating white / light-grey stripes. Factor cells are in serif math type as "transition · emission" (toss 1: "start · emission"). The last column shows the joint probability to 4 decimals:
+
+  | Coin path | toss 1: T | toss 2: T | toss 3: H | Pr(q, T T H) |
+  |---|---|---|---|---|
+  | F F F | 0.5 · 0.5 | 0.95 · 0.5 | 0.95 · 0.5 | **0.0564** |
+  | F F B | 0.5 · 0.5 | 0.95 · 0.5 | 0.05 · 0.1 | 0.0006 |
+  | F B F | 0.5 · 0.5 | 0.05 · 0.9 | 0.20 · 0.5 | 0.0011 |
+  | F B B | 0.5 · 0.5 | 0.05 · 0.9 | 0.80 · 0.1 | 0.0009 |
+  | B F F | 0.5 · 0.9 | 0.20 · 0.5 | 0.95 · 0.5 | 0.0214 |
+  | B F B | 0.5 · 0.9 | 0.20 · 0.5 | 0.05 · 0.1 | 0.0002 |
+  | B B F | 0.5 · 0.9 | 0.80 · 0.9 | 0.20 · 0.5 | 0.0324 |
+  | B B B | 0.5 · 0.9 | 0.80 · 0.9 | 0.80 · 0.1 | 0.0259 |
+  | **Sum** | | | | **0.1389** |
+
+- The maximum (0.0564, row F F F) and the Sum row ("Sum" and 0.1389) are in bold navy. The other probabilities are in bold black.
+
+**`docs/img/posterior-chart.png` — posterior vs Viterbi path for the 20-toss example** T H T H T T H T T T T T T H T T T T T T (the model for Tab 2's posterior chart at short lengths, §7.3).
+- A two-line legend sits above the plot. Line 1: a navy dash "Posterior Pr(biased | tosses)" and an ochre/brown dash "Viterbi path (0 = fair, 1 = biased)". Line 2: "Toss", a hollow circle "Head", and a filled black circle "Tail".
+- The plot panel has a thin dark border and light-grey gridlines. The x-axis is "toss t" with integer ticks 1–20. The y-axis runs from 0.00 to 1.00 with ticks every 0.25. A dotted grey horizontal reference line sits at 0.50.
+- The posterior is a navy polyline with a marker at each toss: filled black circles for Tails, hollow white circles with black outlines for Heads (tosses 2, 4, 7, 14). Values are listed in §10.
+- The Viterbi path is an ochre step line at 0 from toss 1 up to toss 8, where it jumps vertically to 1 and stays there through toss 20.
+- Notice: at toss 8 (0.459) and toss 14 (0.497) the posterior is below 0.5 while the Viterbi path is at 1 (B). These are the disagreement tosses in §7.3.
 
 ---
 
@@ -119,7 +213,7 @@ All functions are pure and return full tables (not only final answers) because t
 
 ### 5.1 Brute-force enumeration (`enumerate.js`)
 
-For sequences of length n ≤ 12 (UI uses ≤ 4; tests use ≤ 8). Lists all 2ⁿ coin paths in lexicographic order with F before B (FFF, FFB, FBF, …, BBB — matching `output-table.png`). For each path return per-toss factors `[{trans or start, emit}]` and the joint probability. Also return likelihood (sum), and helpers for posterior-by-filtering and argmax.
+For sequences of length n ≤ 12 (UI uses ≤ 4; tests use ≤ 8). Lists all 2ⁿ coin paths in lexicographic order with F before B (FFF, FFB, FBF, …, BBB — matching `docs/img/output-table.png` (§0.1)). For each path return per-toss factors `[{trans or start, emit}]` and the joint probability. Also return likelihood (sum), and helpers for posterior-by-filtering and argmax.
 
 ### 5.2 Viterbi (`viterbi.js`)
 
@@ -159,7 +253,7 @@ Top of tab: toss-sequence input (1–4 tosses, default TTH) and a short intro pa
 
 ### Stage 1 — Enumeration table
 
-Matches `output-table.png`: columns *Coin path | toss 1: x₁ | … | toss n: xₙ | Pr(q, tosses)*, one row per coin path, then a **Sum** row.
+Matches `docs/img/output-table.png` (§0.1): columns *Coin path | toss 1: x₁ | … | toss n: xₙ | Pr(q, tosses)*, one row per coin path, then a **Sum** row.
 
 - Each Next fills **one row**: its factor cells (`0.5 · 0.5`, `0.95 · 0.5`, …; toss 1 uses start · emit, later tosses use trans · emit), then its joint probability.
 - After the last row, Next fills the Sum row (= likelihood).
@@ -174,7 +268,7 @@ Three buttons, each highlighting the table and showing a short derivation in the
 
 ### Stage 3 — Trellis by hand
 
-Matches `hidden_path.png`: a *start* node, two rows (Fair, Biased) by n columns, column headers "t = k: Tail/Head", each node showing the coin state, its emission (`b = 0.5`) and its value; arrows labelled with transition probabilities.
+Matches `docs/img/hidden_path.png` (§0.1): a *start* node, two rows (Fair, Biased) by n columns, column headers "t = k: Tail/Head", each node showing the coin state, its emission (`b = 0.5`) and its value; arrows labelled with transition probabilities.
 
 - A **Max (Viterbi) / Sum (Forward)** switch above the trellis.
 - **Max mode:** each Next computes **one node** (δₜ(F) then δₜ(B)). The current column is highlighted (as in the image). Below the trellis show the equation in the image's style:
@@ -210,7 +304,7 @@ After the forward pass completes, a **Backtrack** phase starts (same controls, c
 
 ### 7.3 Posterior chart
 
-Matches `posterior-chart.png` at short lengths: x = toss t, y ∈ [0, 1]; posterior P(B | tosses) as a navy line; Viterbi path as an ochre step line (0 = F, 1 = B); dotted reference line at 0.5; legend as in the image.
+Matches `docs/img/posterior-chart.png` (§0.1) at short lengths: x = toss t, y ∈ [0, 1]; posterior P(B | tosses) as a navy line; Viterbi path as an ochre step line (0 = F, 1 = B); dotted reference line at 0.5; legend as in the image.
 
 - **Always fully computed and shown**; not stepped through. (The Viterbi step line appears only once the backtrack has finished, or immediately if the user skipped to the end.)
 - **Scaling to long sequences:** when ≤ 100 tosses are in the visible x-range, draw a marker per toss (filled = Tail, hollow = Head). Above that, draw only the line, and show H/T as a thin rug of tick marks under the x-axis.
@@ -244,7 +338,7 @@ Above the table, one sentence explaining what's happening, and a button **"Try n
 
 ## 9. Visual design
 
-- Consistent colour for coin state across the app: one colour for **F**, one for **B** (colour-blind-safe pair, e.g. blue vs vermillion). Posterior line navy, Viterbi path ochre (as in `posterior-chart.png`). Faded/losing arrows at ~25% opacity. Define colours as CSS custom properties.
+- Consistent colour for coin state across the app: one colour for **F**, one for **B** (colour-blind-safe pair, e.g. blue vs vermillion). Posterior line navy, Viterbi path ochre (as in `docs/img/posterior-chart.png` (§0.1)). Faded/losing arrows at ~25% opacity. Define colours as CSS custom properties.
 - Readable at 1024–1920 px. System font stack; tabular numerals for all numbers.
 - Every interactive control is keyboard-reachable; Tab 1 and Tab 2 step controls respond to ←/→ and Space when the tab is focused.
 
@@ -300,8 +394,8 @@ More than two coin states or more than two symbols; parameter learning (Baum–W
 
 - [ ] `npm test` passes all fixtures above; GitHub Action blocks deploy on failure.
 - [ ] Site loads from GitHub Pages at `/hmm_viz/` with no console errors.
-- [ ] Tab 1 with TTH: stepping through reproduces `output-table.png` row by row, the three questions give 0.1389 / 0.434 / FFF, and the trellis reproduces `hidden_path.png`'s numbers and arrow fading; Sum mode reproduces 0.164 / 0.335 and ends at 0.1389.
-- [ ] Tab 2 with the 20-toss example reproduces `posterior-chart.png`, with tosses 8 and 14 shaded.
+- [ ] Tab 1 with TTH: stepping through reproduces `docs/img/output-table.png` (§0.1) row by row, the three questions give 0.1389 / 0.434 / FFF, and the trellis reproduces the numbers and arrow fading of `docs/img/hidden_path.png` (§0.1); Sum mode reproduces 0.164 / 0.335 and ends at 0.1389.
+- [ ] Tab 2 with the 20-toss example reproduces `docs/img/posterior-chart.png` (§0.1), with tosses 8 and 14 shaded.
 - [ ] Tab 2 at n = 5000: simulate, play at max speed, skip, backtrack, and chart interaction all stay responsive (no frame longer than ~50 ms during playback).
 - [ ] Precision panel at n = 2000 shows naive failing (NaN posteriors, −∞ log-likelihood, wrong Viterbi tosses) while rescaled and log agree.
 - [ ] Changing any parameter recomputes both tabs; a copied URL reopens the same tab, parameters and sequence.
