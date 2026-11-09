@@ -13,7 +13,7 @@ import { app as appText } from './content/text.js';
 import { mountParamsPanel } from './ui/paramsPanel.js';
 import { wireFit } from './ui/fit.js';
 import { mountTab1 } from './ui/tab1/tab1.js';
-import { mountTab2 } from './ui/tab2/tab2.js';
+import { mountCompareTab, mountLongTab } from './ui/tab2/tab2.js';
 import { mountSpeed } from './ui/speed/speed.js';
 import { speedStart } from './ui/speed/speedSteps.js';
 
@@ -246,6 +246,7 @@ wireTabs();
 mountParamsPanel(document.getElementById('sidebar'), document.getElementById('layout'), store, actions);
 const tab1 = mountTab1(document.getElementById('tab-how'), store, actions);
 const speed = mountSpeed(document.getElementById('tab-speed'), store, actions);
-const tab2 = mountTab2(document.getElementById('tab-long'), store, actions);
-wireKeyboard({ how: tab1.keys, speed: speed.keys, long: tab2.keys });
+const compare = mountCompareTab(document.getElementById('tab-compare'), store, actions);
+const long = mountLongTab(document.getElementById('tab-long'), store, actions);
+wireKeyboard({ how: tab1.keys, speed: speed.keys, compare: compare.keys, long: long.keys });
 wireUrl();

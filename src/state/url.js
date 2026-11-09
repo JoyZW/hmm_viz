@@ -5,8 +5,8 @@ import { parseTosses, tossesToString, TAB1_MAX, TAB2_MAX } from '../hmm/parse.js
 
 export const URL_SEQ_MAX = 200;
 
-/** Tab ids, in display order. Old links used tab=1 / tab=2 for the first and last tab. */
-export const TABS = ['how', 'speed', 'long'];
+/** Tab ids, in display order. Old links used tab=1 / tab=2 for "How HMMs work" / "Long sequences". */
+export const TABS = ['how', 'speed', 'compare', 'long'];
 const OLD_TAB = { 1: 'how', 2: 'long' };
 /** "Speeding it up" question keys and their URL numbers. */
 export const SPEED_QS = ['lik', 'post', 'vit'];

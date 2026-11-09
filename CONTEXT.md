@@ -87,5 +87,5 @@ How products of many small probabilities are kept representable: Naive, Rescaled
 _Avoid_: Scaling option, numeric mode
 
 **Underflow**:
-A probability too small for a double (below ~1e-308) collapsing to exactly 0.
+A probability too small for a computer to hold: below about 10⁻³⁰⁸ it starts losing digits, and below about 10⁻³²⁴ it is stored as exactly 0. On long toss sequences the trellis values shrink by a roughly constant factor per toss, so without rescaling or logs they underflow after roughly a thousand tosses.
 _Avoid_: Overflow, precision loss

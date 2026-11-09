@@ -4,7 +4,8 @@ A static, browser-based teaching tool for hidden Markov models. A dealer tosses 
 
 - **How HMMs work** (1–4 tosses): enumeration table → the three questions, answered by brute force.
 - **Speeding it up** (same tosses): the three questions answered by the trellis passes — forward (Q1), forward + backward (Q2), Viterbi + backtrack (Q3) — each checked against brute force.
-- **Long sequences** (1–5000 tosses): “which coin at each toss?” — posterior vs Viterbi path, with a reading guide and the disagreements listed — and the precision comparison.
+- **Posterior vs Viterbi path** (1–5000 tosses): “which coin at each toss?”, with a reading guide and the disagreements listed.
+- **Long sequences** (same tosses): the precision comparison drawn — how small the numbers get against the smallest double, where naive breaks, and what rescaled / log-space store instead — plus the table.
 
 The full brief is in [SPEC.md](SPEC.md); the vocabulary is in [CONTEXT.md](CONTEXT.md).
 
@@ -50,7 +51,7 @@ src/
     tab1/ tab1.js  trellisGeom.js  pathTrellis.js  enumerationTable.js  questions.js
     speed/ speed.js  speedSteps.js  speedTrellis.js  speedPanels.js
     tab2/ tab2.js  sequenceInput.js
-          posteriorChart.js  precisionPanel.js
+          posteriorChart.js  precisionPanel.js  precisionChart.js
   content/text.js         ALL teaching prose, captions, tooltips
 test/                     Vitest suites (lecture fixtures, brute force, precision, edge cases)
 ```

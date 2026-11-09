@@ -404,3 +404,40 @@ textarea { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; width:
 .read-list .k-vit { color: var(--viterbi); }
 .read-list .k-dis { background: var(--disagree); padding: 0 4px; border-radius: 3px; }
 .dis-list { margin: 4px 0 0; padding-left: 18px; }
+
+/* Long sequences: precision chart */
+.pc-legend { margin: 4px 0; font-size: 13px; justify-content: flex-start; }
+.sw-true { background: #8a93a2; }
+.sw-naive { background: var(--bad); }
+.sw-resc { background: var(--navy); }
+.sw-sub { background: #fde8e6; border-color: #f2b8b5; }
+.prec-svg { display: block; }
+.pr-sub { fill: #fde8e6; }
+.pr-zero { fill: #f9d2cf; }
+.pr-floor { stroke: var(--bad); stroke-width: 1.6; }
+.pr-one { stroke: #c4cad3; stroke-dasharray: 2 4; }
+.pr-floor-lab, .pr-zero-lab { font-size: 12px; fill: var(--bad); font-weight: 600; }
+.pr-true { fill: none; stroke: #8a93a2; stroke-width: 5; stroke-linejoin: round; opacity: 0.6; }
+.pr-proj { fill: none; stroke: #8a93a2; stroke-width: 2; stroke-dasharray: 6 5; }
+.pr-proj-mark { stroke: var(--bad); stroke-width: 2; }
+.pr-proj-lab { font-size: 12px; font-weight: 700; fill: var(--bad); }
+.pr-naive { fill: none; stroke: var(--bad); stroke-width: 1.8; stroke-linejoin: round; }
+.pr-resc { fill: none; stroke: var(--navy); stroke-width: 1.6; }
+.pr-resc-lab { font-size: 12px; fill: var(--navy); font-weight: 600; }
+.pr-under line { stroke: var(--bad); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.pr-under text { font-size: 12px; font-weight: 700; fill: var(--bad); }
+.pr-strip rect.ok { fill: #d5dbe3; }
+.pr-strip rect.bad { fill: var(--bad); }
+.pr-strip-lab { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+.pr-strip-count { font-size: 12px; fill: var(--muted); }
+.pr-strip-count.bad { fill: var(--bad); font-weight: 700; }
+.pr-strip.linked rect.bad, .pr-under.linked line { stroke: var(--ink); stroke-width: 2; }
+.pr-strip.linked .pr-strip-lab { fill: var(--bad); text-decoration: underline; }
+.pr-under.linked line { stroke-dasharray: none; stroke-width: 3; }
+.pr-rule { stroke: var(--ink); stroke-width: 1; opacity: 0.5; pointer-events: none; }
+.pr-hit { fill: transparent; cursor: crosshair; }
+.prec-readout { font-size: 13.5px; background: #f4f6fa; border-left: 4px solid var(--navy); padding: 6px 10px; margin: 6px 0; border-radius: 0 6px 6px 0; }
+.ro-naive b { color: var(--bad); }
+.ro-resc b { color: var(--navy); }
+.ro-log b { color: var(--emit); }
+.precision-table tr.linkable:hover { background: var(--highlight); }

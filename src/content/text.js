@@ -6,7 +6,7 @@
 
 export const app = {
   title: 'Crooked Casino HMM Explorer',
-  tabs: ['How HMMs work', 'Speeding it up', 'Long sequences'],
+  tabs: ['How HMMs work', 'Speeding it up', 'Posterior vs Viterbi path', 'Long sequences'],
   narrowBanner: 'This explorer is designed for desktop screens',
   dismiss: 'Dismiss',
   impossible: 'This toss sequence is impossible under these parameters.',
@@ -184,6 +184,10 @@ export const speed = {
 export const tab2 = {
   intro:
     'For long toss sequences we cannot list 2ⁿ coin paths, but the trellis passes from “Speeding it up” still work: forward–backward gives the posterior at every toss and the Viterbi pass gives the best whole coin path. Numbers this small need care — see the precision comparison at the bottom.',
+  compareIntro:
+    'Two answers to “which coin at each toss?”, on as many tosses as you like: the posterior (Q2) judges each toss on its own; the Viterbi path (Q3) is the single best whole sequence. This toss sequence is shared with “Long sequences”.',
+  longIntro:
+    'On long sequences the probabilities behind every answer get astronomically small. This tab shows when a computer can no longer store them and how rescaling and logs avoid it. This toss sequence is shared with “Posterior vs Viterbi path”.',
   textareaLabel: 'Toss sequence (type or paste, 1–5000 tosses)',
   useTyped: 'Use this sequence',
   lengthLabel: 'Length n',
@@ -232,6 +236,33 @@ export const tab2 = {
   precisionExplain:
     'Every method computes the same quantities, but a product of n probabilities shrinks roughly like 0.5ⁿ and drops below the smallest double (about 10⁻³⁰⁸) after roughly a thousand tosses. Then naive forward–backward stores exact zeros, so the likelihood is 0 and every posterior is 0/0 = NaN; naive Viterbi compares 0 against 0, the tie-break (prefer F) picks F, and the path is silently wrong — not NaN. Rescaled and log-space keep every value representable and agree.',
   tryN: 'Try n = 2000',
+  tableLinkHint: 'Hover a row of the table to see it on the chart.',
+
+  // ── precision chart ──
+  pcAria: 'How small the forward value gets, toss by toss, against the smallest number a computer can store',
+  pcTrue: 'smallest value stored at toss t (an α or δ), true size from log-space',
+  pcNaive: 'what naive stores',
+  pcRescaled: 'what rescaled stores instead (between 0 and 1)',
+  pcSubnormal: 'below 10⁻³⁰⁸: digits being lost, then exactly 0',
+  pcYTitle: 'value (log scale)',
+  pcFloor: 'smallest double ≈ 10⁻³⁰⁸',
+  pcZeroLane: 'stored as 0',
+  pcRescLabel: 'rescaled stays near 1',
+  pcProjLabel: (t) => `at this rate, naive stores 0 from ≈ toss ${t}`,
+  pcFirstUnderflow: (t) => `naive hits 0 at toss ${t}`,
+  stripNaive: 'Naive posterior',
+  stripNaivePath: 'Naive Viterbi path',
+  stripStable: 'Rescaled vs log-space',
+  stripOk: 'all fine',
+  stripBadCount: (k) => `${k} toss${k === 1 ? '' : 'es'} wrong`,
+  // hover readout (HTML): one toss, the same αₜ(F) stored three ways
+  readout: ({ t, toss, what, trueVal, naive, naiveZero, resc, cum, lnA }) =>
+    `<b>Toss ${t} (${toss}):</b> the smallest value is ${what} = ${trueVal}. &nbsp; <span class="ro-naive">Naive stores <b>${naive}</b>${naiveZero ? ' — the value is lost' : ''}</span> &nbsp;·&nbsp; <span class="ro-resc">Rescaled stores <b>${resc}</b> and keeps the ${cum} (in ln) it divided out on the side</span> &nbsp;·&nbsp; <span class="ro-log">Log-space stores <b>ln = ${lnA}</b></span>. All three mean the same number; only naive cannot hold it.`,
+  pcNoteFailed: ({ first, n }) =>
+    `The grey line falls by a roughly constant amount per toss — a product of n probabilities shrinks exponentially. Naive follows it exactly until toss ${first}, where its smallest value (a δ from the Viterbi pass, or an α) drops below the smallest double and is stored as 0. Its likelihood is then 0, and every posterior divides by the likelihood, so all of them are 0/0 = NaN — even at toss 1, long before the underflow. Its Viterbi pass breaks only after the underflow, where it compares 0 with 0 and the tie-break picks F. Rescaled and log-space never store anything that small, and agree at all ${n} tosses.`,
+  pcNoteSurvives: ({ n, at, normal, zero }) =>
+    `Naive survives these ${n} tosses: its smallest value is only down to ${at}. But the grey line falls by a roughly constant amount per toss, so at this rate it would drop below 10⁻³⁰⁸ around toss ${normal} and be stored as exactly 0 around toss ${zero} (dashed). Press “Try n = 2000” to watch it fail.`,
+  pcNoteFlat: 'With these parameters the forward value does not shrink, so naive never underflows here.',
   precisionRows: {
     logLik: 'Log-likelihood',
     underflow: 'First underflow at toss',

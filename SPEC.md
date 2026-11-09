@@ -125,10 +125,11 @@ Students learning HMMs for the first time. The app must make each computation *v
 
 The model: a dealer tosses a coin; the coin is either Fair (F) or Biased (B) and the dealer occasionally swaps it. We see only the tosses.
 
-Three tabs, in this order (this document keeps the names Tab 1 and Tab 2 for the first and last):
+Four tabs, in this order (this document keeps the names Tab 1 for the first and Tab 2 for the long-sequence tabs, §7):
 - **Tab 1 — "How HMMs work"**: tiny sequences (1–4 tosses). Brute-force enumeration table → the three questions answered from it.
 - **"Speeding it up"** (§6b): the same toss sequence; the same three questions answered by the trellis passes instead of the list — forward pass (Q1), forward + backward pass (Q2), Viterbi pass + backtrack (Q3) — each checked against the brute-force answer.
-- **Tab 2 — "Long sequences"**: 1–5000 tosses. "Which coin at each toss?" — posterior vs Viterbi path with a reading guide — and the precision comparison.
+- **"Posterior vs Viterbi path"** (§7.3): 1–5000 tosses. "Which coin at each toss?" — posterior vs Viterbi path with a reading guide.
+- **"Long sequences"** (§7.4): the same toss sequence. The precision comparison: why naive breaks, drawn and tabulated.
 
 ---
 
@@ -378,17 +379,15 @@ Use the lecture notation (δₜ, φₜ, αₜ, βₜ, Pr(q, …)) in equations; 
 
 ---
 
-## 7. Tab 2 — "Long sequences"
+## 7. Tab 2 — the long-sequence tabs: "Posterior vs Viterbi path" and "Long sequences"
 
-Top: sequence input — textarea (type or paste), length + seed + Simulate controls, and a status line (n, source: typed/simulated).
-
-Vertical order of the panels below: "Which coin at each toss?" chart → precision comparison. There is **no step-by-step Viterbi trellis** here (no playback, overview strip or detail window): stepping through the passes is the job of "Speeding it up" (§6b); this tab shows their results on long sequences.
+Two tabs that **share one toss sequence** (1–5000 tosses, typed or simulated). Each starts with the same sequence card — its own short intro, then textarea (type or paste), length + seed + Simulate controls and a status line (n, source: typed/simulated) — and editing it in either tab changes both. Below the card, "Posterior vs Viterbi path" shows §7.3 and "Long sequences" shows §7.4. There is **no step-by-step Viterbi trellis** on either (no playback, overview strip or detail window): stepping through the passes is the job of "Speeding it up" (§6b); these tabs show the results on long sequences. Neither tab has keyboard stepping.
 
 ### 7.1–7.2 (removed)
 
 The sliding-window Viterbi trellis and its playback were removed. Sections are kept numbered so references to §7.3 and §7.4 stay valid.
 
-### 7.3 "Which coin at each toss? Posterior vs Viterbi path"
+### 7.3 Tab "Posterior vs Viterbi path": "Which coin at each toss?"
 
 Matches `docs/img/posterior-chart.png` (§0.1) at short lengths: x = toss t, y ∈ [0, 1]; posterior P(B | tosses) as a navy line; Viterbi path as an ochre step line (0 = F, 1 = B); dotted reference line at 0.5; legend as in the image.
 
@@ -403,7 +402,7 @@ Matches `docs/img/posterior-chart.png` (§0.1) at short lengths: x = toss t, y �
 - **Disagreement shading**: shade the background at tosses where the Viterbi path's state differs from the per-toss most likely coin (posterior > 0.5 ⇒ B, < 0.5 ⇒ F; exactly 0.5 is not a disagreement). Under the chart, a note explains why (the Viterbi path is the single best *whole* path; the posterior answers about *each toss separately*) and lists the disagreements toss by toss (up to six, then "… and k more"), e.g. "toss 8 (Tail): posterior 0.459, so on its own Fair is more likely; the Viterbi path says Biased." In the 20-toss lecture example this shades exactly tosses 8 (0.459) and 14 (0.497).
 - If a true path exists (simulated sequence), report Viterbi agreement with the true coin above the chart.
 
-### 7.4 Precision comparison panel
+### 7.4 Tab "Long sequences": precision comparison
 
 Runs all three methods on the current Tab 2 sequence and shows a table with one column per method (Naive, Rescaled, Log-space) and rows:
 
@@ -417,12 +416,25 @@ Runs all three methods on the current Tab 2 sequence and shows a table with one 
 
 Above the table, one sentence explaining what's happening, and a button **"Try n = 2000"** that simulates 2000 tosses with the current seed (at n = 500 with default parameters, naive usually survives; underflow typically appears somewhere around 700–1100 tosses). The explanation must name both failure modes: naive posteriors become NaN (0/0), and naive Viterbi compares 0 against 0, so the tie-break (prefer F) produces a wrong path — not NaN.
 
+**The comparison drawn** (between the button and the table), in the order cause → consequence → fix:
+
+- **A. How small the numbers get** (log-scale y-axis, x = toss). At each toss, the *smallest value naive has to store* — whichever of αₜ(F), αₜ(B), δₜ(F), δₜ(B) is smallest (usually a δ, since δ ≤ α); its first exact 0 is by construction the table's "First underflow" toss.
+  - grey: its true size (from log-space), falling by a roughly constant amount per toss;
+  - red: what naive stores — the same until it is stored as 0, then drawn in a "stored as 0" lane at the bottom;
+  - navy: what rescaled stores instead (a number between 0 and 1, near the top);
+  - a red line at the smallest normal double (≈ 10⁻³⁰⁸) with the band down to ≈ 10⁻³²⁴ shaded ("digits being lost, then exactly 0");
+  - a dashed red marker "naive hits 0 at toss k" when it happens. When it does not (e.g. the default 500 tosses), the grey line is **projected** forward at its average rate (dashed) to where naive would store 0, labelled "at this rate, naive stores 0 from ≈ toss k" — and the note under the chart gives both crossings and points to "Try n = 2000". (Default seed: projected ≈ 1001 from 500 tosses vs actual 1003 at n = 2000.) Lines are clipped to the plot area.
+- **B. Consequence strips**, on the same x-axis under A: *Naive posterior* (red where NaN — every toss once the likelihood is 0), *Naive Viterbi path* (red where it differs from log-space), *Rescaled vs log-space* (red where they disagree; normally "all fine"); each strip ends with its count ("70 tosses wrong" / "all fine").
+- **D. One toss, three representations**: hovering anywhere on A or B moves a rule and fills a readout under the chart — the value's name and true size, what naive stores ("0 — the value is lost"), what rescaled stores plus the amount (in ln) it divided out, and what log-space stores (its ln). Default: the first-underflow toss, else the last toss.
+- **Linked table**: hovering the "First underflow", "NaN posteriors" or "Viterbi path differs" row highlights its marker / strip on the chart. A hint above the table says so.
+- A note under the chart explains the picture in words for the current run (survives with projection / fails at toss k: likelihood 0 ⇒ every posterior NaN even at toss 1; Viterbi only breaks after the underflow).
+
 ---
 
 ## 8. State, URL and text
 
 - A tiny store holds: active tab, params, Tab 1 sequence, Tab 2 sequence source (`{seed, n}` or explicit tosses), Tab 1 / "Speeding it up" step positions, Tab 2 chart zoom.
-- **Shareable URL** in `location.hash`, e.g. `#tab=speed&q=2&pf=0.5&fb=0.05&bf=0.2&hf=0.5&hb=0.1&t1=TTH&seed=615&n=500` or `…&seq=THTHTT…`. `tab` is `how`, `speed` or `long`; old links with `tab=1` / `tab=2` still open "How HMMs work" / "Long sequences". `q=1|2|3` (only with `tab=speed`) is the selected question; step positions are not encoded. Encode an explicit Tab 2 sequence only if ≤ 200 tosses; longer typed sequences are not put in the URL (the URL then omits Tab 2's sequence). Playback position is not encoded. Invalid hash values fall back to defaults silently.
+- **Shareable URL** in `location.hash`, e.g. `#tab=speed&q=2&pf=0.5&fb=0.05&bf=0.2&hf=0.5&hb=0.1&t1=TTH&seed=615&n=500` or `…&seq=THTHTT…`. `tab` is `how`, `speed`, `compare` or `long`; old links with `tab=1` / `tab=2` still open "How HMMs work" / "Long sequences". `q=1|2|3` (only with `tab=speed`) is the selected question; step positions are not encoded. Encode an explicit Tab 2 sequence only if ≤ 200 tosses; longer typed sequences are not put in the URL (the URL then omits Tab 2's sequence). Invalid hash values fall back to defaults silently.
 - **All teaching prose** (stage captions, per-step captions, question explanations, disagreement note, precision explanation, tooltips) lives in `src/content/text.js` as plain strings/template functions, so the author can edit wording without touching code. You draft the text; keep it short, plain, and in the lecture's notation.
 
 ---
