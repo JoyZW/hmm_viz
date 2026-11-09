@@ -1,15 +1,24 @@
 // Read / write shareable state in location.hash.
-// e.g. #tab=2&pf=0.5&fb=0.05&bf=0.2&hf=0.5&hb=0.1&t1=TTH&seed=615&n=500   or   …&seq=THTHTT…
+// e.g. #tab=speed&q=2&pf=0.5&fb=0.05&bf=0.2&hf=0.5&hb=0.1&t1=TTH&seed=615&n=500   or   …&seq=THTHTT…
 import { CONTROL_KEYS, DEFAULT_CONTROLS, isValidProb } from '../hmm/model.js';
 import { parseTosses, tossesToString, TAB1_MAX, TAB2_MAX } from '../hmm/parse.js';
 
 export const URL_SEQ_MAX = 200;
 
+/** Tab ids, in display order. Old links used tab=1 / tab=2 for the first and last tab. */
+export const TABS = ['how', 'speed', 'long'];
+const OLD_TAB = { 1: 'how', 2: 'long' };
+/** "Speeding it up" question keys and their URL numbers. */
+export const SPEED_QS = ['lik', 'post', 'vit'];
+
 /** Parse a hash string; invalid values silently fall back to defaults. */
 export function readHash(hash, defaults) {
   const q = new URLSearchParams(String(hash || '').replace(/^#/, ''));
+  const tab = q.get('tab');
+  const qn = Number(q.get('q'));
   const out = {
-    tab: q.get('tab') === '2' ? 2 : 1,
+    tab: TABS.includes(tab) ? tab : OLD_TAB[tab] ?? 'how',
+    speedQ: SPEED_QS[qn - 1] ?? 'lik',
     controls: { ...DEFAULT_CONTROLS },
     t1Text: defaults.t1Text,
     t2: { source: 'sim', seed: defaults.seed, n: defaults.n, tosses: null },
@@ -36,7 +45,8 @@ export function readHash(hash, defaults) {
 
 export function buildHash(state) {
   const q = new URLSearchParams();
-  q.set('tab', String(state.tab));
+  q.set('tab', state.tab);
+  if (state.tab === 'speed') q.set('q', String(SPEED_QS.indexOf(state.speedNav.q) + 1));
   for (const k of CONTROL_KEYS) q.set(k, String(state.controls[k]));
   q.set('t1', tossesToString(state.t1.tosses));
   const s = state.t2seq;

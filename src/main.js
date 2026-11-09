@@ -2,17 +2,20 @@
 import './styles.css';
 import { DEFAULT_CONTROLS, paramsFromControls } from './hmm/model.js';
 import { enumerate } from './hmm/enumerate.js';
-import { viterbi, columnArgmax } from './hmm/viterbi.js';
+import { viterbi } from './hmm/viterbi.js';
 import { forwardBackward } from './hmm/forwardBackward.js';
 import { simulate } from './hmm/simulate.js';
 import { parseTosses, TAB1_MAX } from './hmm/parse.js';
 import { precisionReport } from './hmm/precision.js';
 import { createStore } from './state/store.js';
-import { readHash, buildHash } from './state/url.js';
+import { readHash, buildHash, TABS } from './state/url.js';
 import { app as appText } from './content/text.js';
 import { mountParamsPanel } from './ui/paramsPanel.js';
+import { wireFit } from './ui/fit.js';
 import { mountTab1 } from './ui/tab1/tab1.js';
 import { mountTab2 } from './ui/tab2/tab2.js';
+import { mountSpeed } from './ui/speed/speed.js';
+import { speedStart } from './ui/speed/speedSteps.js';
 
 const DEFAULTS = { t1Text: 'TTH', seed: 615, n: 500 };
 
@@ -23,13 +26,15 @@ function computeR1(params, tosses) {
     table: enumerate(params, tosses),
     vit: viterbi(params, tosses, 'log'),
     fb: forwardBackward(params, tosses, 'rescaled'),
+    // "Speeding it up" shows plain α and β; with 1–4 tosses plain products cannot underflow.
+    fbN: forwardBackward(params, tosses, 'naive'),
   };
 }
 
 function computeR2(params, tosses) {
   const vit = viterbi(params, tosses, 'log');
   const fb = forwardBackward(params, tosses, 'rescaled');
-  return { vit, fb, argmax: columnArgmax(vit), report: precisionReport(params, tosses) };
+  return { vit, fb, report: precisionReport(params, tosses) };
 }
 
 function makeT2Seq(src, params) {
@@ -40,16 +45,17 @@ function makeT2Seq(src, params) {
   return { source: 'typed', seed: src.seed, n: src.tosses.length, tosses: src.tosses, truePath: null };
 }
 
-export const initialT1Nav = () => ({ stage: 1, s1: 0, question: null, qT: 2, mode: 'max', s3: 0 });
-export const initialT2Nav = (prev = {}) => ({
-  k: 0,
-  playing: false,
-  speed: prev.speed ?? 10,
-  center: 0,
-  showLn: prev.showLn ?? false,
-  showTrue: prev.showTrue ?? true,
-  zoom: null,
+// rev: questions answered so far in Stage 2, in the order they were revealed.
+// sel: a table row the user picked to trace on the Stage 1 trellis (cleared by any step).
+export const initialT1Nav = (qT = 2) => ({ stage: 1, s1: 0, question: null, rev: [], qT, sel: null });
+// "Speeding it up": the selected question and each question's own step (Q2 starts with α filled).
+export const initialSpeedNav = (n, q = 'lik', qT = 2) => ({
+  q,
+  k: { lik: speedStart('lik', n), post: speedStart('post', n), vit: speedStart('vit', n) },
+  qT: Math.min(qT, n),
 });
+// Long sequences: only the chart's zoom (x-range, 1-based) is view state.
+export const initialT2Nav = () => ({ zoom: null });
 
 // ───────── initial state from the URL ─────────
 
@@ -64,6 +70,7 @@ export const store = createStore({
   params,
   t1: { tosses: t1Tosses },
   t1nav: initialT1Nav(),
+  speedNav: initialSpeedNav(t1Tosses.length, fromHash.speedQ),
   r1: computeR1(params, t1Tosses),
   t2seq,
   r2: computeR2(params, t2seq.tosses),
@@ -76,40 +83,53 @@ export const actions = {
   setTab(tab) {
     store.set({ tab });
   },
-  setControls(patch) {
+  /** Optional `t1Tosses` replaces the Tab 1 toss sequence in the same update (used by reset). */
+  setControls(patch, t1Tosses = null) {
     const s = store.get();
     const controls = { ...s.controls, ...patch };
     const p = paramsFromControls(controls);
     const seq = makeT2Seq(s.t2seq, p);
+    const tosses = t1Tosses ?? s.t1.tosses;
     store.set({
       controls,
       params: p,
-      r1: computeR1(p, s.t1.tosses),
-      t1nav: { ...initialT1Nav(), mode: s.t1nav.mode, qT: s.t1nav.qT },
+      ...(t1Tosses ? { t1: { tosses } } : {}),
+      r1: computeR1(p, tosses),
+      t1nav: initialT1Nav(t1Tosses ? Math.min(2, tosses.length) : s.t1nav.qT),
+      speedNav: initialSpeedNav(tosses.length, s.speedNav.q, t1Tosses ? 2 : s.speedNav.qT),
       t2seq: seq,
       r2: computeR2(p, seq.tosses),
-      t2nav: initialT2Nav(s.t2nav),
+      t2nav: initialT2Nav(),
     });
   },
+  /** Lecture parameters and the Tab 1 default toss sequence. The Tab 2 sequence is left alone. */
   resetControls() {
-    actions.setControls({ ...DEFAULT_CONTROLS });
+    actions.setControls({ ...DEFAULT_CONTROLS }, parseTosses(DEFAULTS.t1Text, { max: TAB1_MAX }).tosses);
   },
   setT1Tosses(tosses) {
     const s = store.get();
     store.set({
       t1: { tosses },
       r1: computeR1(s.params, tosses),
-      t1nav: { ...initialT1Nav(), mode: s.t1nav.mode, qT: Math.min(2, tosses.length) },
+      t1nav: initialT1Nav(Math.min(2, tosses.length)),
+      speedNav: initialSpeedNav(tosses.length, s.speedNav.q, 2),
     });
   },
   setT1Nav(patch) {
     store.set((s) => ({ t1nav: { ...s.t1nav, ...patch } }));
   },
+  setSpeedNav(patch) {
+    store.set((s) => ({ speedNav: { ...s.speedNav, ...patch } }));
+  },
+  /** Hand-off from "How HMMs work": open "Speeding it up" on Q1 at its first step. */
+  goSpeed() {
+    store.set((s) => ({ tab: 'speed', speedNav: { ...s.speedNav, q: 'lik', k: { ...s.speedNav.k, lik: 0 } } }));
+  },
   /** src: {source:'sim', seed, n} | {source:'typed', tosses} */
   setT2Sequence(src) {
     const s = store.get();
     const seq = makeT2Seq({ seed: s.t2seq.seed, ...src }, s.params);
-    store.set({ t2seq: seq, r2: computeR2(s.params, seq.tosses), t2nav: initialT2Nav(s.t2nav) });
+    store.set({ t2seq: seq, r2: computeR2(s.params, seq.tosses), t2nav: initialT2Nav() });
   },
   setT2Nav(patch) {
     store.set((s) => ({ t2nav: { ...s.t2nav, ...patch } }));
@@ -128,18 +148,15 @@ function buildShell() {
     <header class="app-header">
       <div class="title-block">
         <h1>${appText.title}</h1>
-        <p class="tagline">${appText.tagline}</p>
       </div>
       <nav class="tabs" role="tablist" aria-label="Views">
-        <button type="button" role="tab" id="tab-btn-1" aria-controls="tab-1" class="tab-btn">${appText.tabs[0]}</button>
-        <button type="button" role="tab" id="tab-btn-2" aria-controls="tab-2" class="tab-btn">${appText.tabs[1]}</button>
+        ${TABS.map((id, i) => `<button type="button" role="tab" id="tab-btn-${id}" aria-controls="tab-${id}" class="tab-btn">${appText.tabs[i]}</button>`).join('')}
       </nav>
     </header>
     <div class="layout" id="layout">
       <aside class="sidebar" id="sidebar" aria-label="Model parameters"></aside>
       <main class="main">
-        <section id="tab-1" role="tabpanel" aria-labelledby="tab-btn-1" tabindex="-1" class="tab-panel"></section>
-        <section id="tab-2" role="tabpanel" aria-labelledby="tab-btn-2" tabindex="-1" class="tab-panel"></section>
+        ${TABS.map((id) => `<section id="tab-${id}" role="tabpanel" aria-labelledby="tab-btn-${id}" tabindex="-1" class="tab-panel"></section>`).join('')}
       </main>
     </div>`;
 
@@ -158,23 +175,23 @@ function buildShell() {
 }
 
 function wireTabs() {
-  const btns = [document.getElementById('tab-btn-1'), document.getElementById('tab-btn-2')];
-  const panels = [document.getElementById('tab-1'), document.getElementById('tab-2')];
+  const btns = TABS.map((id) => document.getElementById(`tab-btn-${id}`));
+  const panels = TABS.map((id) => document.getElementById(`tab-${id}`));
   btns.forEach((b, i) => {
-    b.addEventListener('click', () => actions.setTab(i + 1));
+    b.addEventListener('click', () => actions.setTab(TABS[i]));
     b.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault();
         e.stopPropagation();
-        const j = 1 - i;
-        actions.setTab(j + 1);
+        const j = (i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length;
+        actions.setTab(TABS[j]);
         btns[j].focus();
       }
     });
   });
   const render = (s) => {
     btns.forEach((b, i) => {
-      const active = s.tab === i + 1;
+      const active = s.tab === TABS[i];
       b.setAttribute('aria-selected', String(active));
       b.tabIndex = active ? 0 : -1;
       b.classList.toggle('active', active);
@@ -190,7 +207,7 @@ function wireTabs() {
 function wireUrl() {
   let timer = null;
   store.subscribe((s, prev) => {
-    if (s.tab === prev.tab && s.controls === prev.controls && s.t1 === prev.t1 && s.t2seq === prev.t2seq) return;
+    if (s.tab === prev.tab && s.controls === prev.controls && s.t1 === prev.t1 && s.t2seq === prev.t2seq && s.speedNav.q === prev.speedNav.q) return;
     clearTimeout(timer);
     timer = setTimeout(() => {
       const h = buildHash(store.get());
@@ -224,9 +241,11 @@ function wireKeyboard(handlers) {
 }
 
 buildShell();
+wireFit(document.getElementById('app')); // before mounting, so first measurements see the final scale
 wireTabs();
 mountParamsPanel(document.getElementById('sidebar'), document.getElementById('layout'), store, actions);
-const tab1 = mountTab1(document.getElementById('tab-1'), store, actions);
-const tab2 = mountTab2(document.getElementById('tab-2'), store, actions);
-wireKeyboard({ 1: tab1.keys, 2: tab2.keys });
+const tab1 = mountTab1(document.getElementById('tab-how'), store, actions);
+const speed = mountSpeed(document.getElementById('tab-speed'), store, actions);
+const tab2 = mountTab2(document.getElementById('tab-long'), store, actions);
+wireKeyboard({ how: tab1.keys, speed: speed.keys, long: tab2.keys });
 wireUrl();

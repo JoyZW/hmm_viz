@@ -6,7 +6,9 @@ import { STATE_LETTERS, TOSS_LETTERS } from '../../hmm/model.js';
 /**
  * @param {HTMLElement} el
  * @param {{table, tosses: number[], filled: number, sumFilled: boolean, justFilled: number|null,
- *          highlight: {rows?: Set<number>, sum?: boolean, max?: number|null}, maxRow: number, complete: boolean}} v
+ *          highlight: {rows?: Set<number>, sum?: boolean, max?: number|null}, maxRow: number, complete: boolean,
+ *          selected: number|null, clickable: boolean}} v
+ *   selected = row traced on the trellis; clickable = rows can be picked to trace (Stages 1–2)
  */
 export function renderEnumerationTable(el, v) {
   const { table, tosses } = v;
@@ -25,6 +27,8 @@ export function renderEnumerationTable(el, v) {
         hl.rows?.has(i) ? 'hl' : '',
         hl.max === i ? 'hl hl-max' : '',
         v.complete && i === v.maxRow ? 'is-max' : '',
+        filled && v.clickable ? 'clickable' : '',
+        i === v.selected ? 'sel' : '',
       ].join(' ');
       const path = r.states.map((s) => `<span class="st st-${STATE_LETTERS[s]}">${STATE_LETTERS[s]}</span>`).join(' ');
       const cells = r.factors
@@ -34,7 +38,8 @@ export function renderEnumerationTable(el, v) {
         })
         .join('');
       const joint = filled ? fixed4(r.joint) : '';
-      return `<tr class="${cls}"><th scope="row" class="path">${path}</th>${cells}<td class="joint" style="--k:${n}">${joint}</td></tr>`;
+      const focus = filled && v.clickable ? ` tabindex="0" aria-label="${T.traceRowLabel(r.states.map((s) => STATE_LETTERS[s]).join(' '))}"` : '';
+      return `<tr class="${cls}" data-i="${i}"><th scope="row" class="path" data-i="${i}"${focus}>${path}</th>${cells}<td class="joint" style="--k:${n}">${joint}</td></tr>`;
     })
     .join('');
 

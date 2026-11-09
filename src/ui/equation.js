@@ -36,6 +36,11 @@ export function firstLine({ letter, s, start, emit, result, log = false }) {
   return `<div class="eq-line">${lhs} = ${start}${op}${emit} = <strong>${result}</strong></div>`;
 }
 
+/** Backward pass: β₂(F) = (0.95 · 0.5 · 1 + 0.05 · 0.1 · 1) = 0.48, with "to F" / "to B" under-braces. */
+export function backwardLine({ t, s, terms, result }) {
+  return `<div class="eq-line">${sym('β', t, s)} = ${brace(terms[0], 'to F')} + ${brace(terms[1], 'to B')} = <strong>${result}</strong></div>`;
+}
+
 export function plainLine(html) {
   return `<div class="eq-line">${html}</div>`;
 }

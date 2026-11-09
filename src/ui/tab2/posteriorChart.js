@@ -1,6 +1,7 @@
-// Tab 2 — posterior chart (matches docs/img/posterior-chart.png at short lengths).
+// Tab 2 — "Which coin at each toss?": posterior vs Viterbi path (matches docs/img/posterior-chart.png at short lengths).
 import * as d3 from 'd3';
 import { tab2 as T } from '../../content/text.js';
+import { sig3 } from '../../hmm/format.js';
 
 const M = { top: 12, right: 18, bottom: 58, left: 52 };
 const HEIGHT = 300;
@@ -17,20 +18,19 @@ export function disagreements(posterior, path) {
   return out;
 }
 
-export function mountPosteriorChart(el, { onPickToss, onZoom }) {
+export function mountPosteriorChart(el, { onZoom }) {
   el.innerHTML = `
     <p class="chart-agree" id="pc-agree"></p>
     <div class="legend">
       <div class="legend-line">
         <span class="lg-item"><span class="sw sw-line sw-post"></span>${T.legendPosterior}</span>
-        <span class="lg-item"><span class="sw sw-line sw-vit"></span>${T.legendViterbi} <span class="pending-note" id="pc-vit-pending">${T.legendViterbiPending}</span></span>
+        <span class="lg-item"><span class="sw sw-line sw-vit"></span>${T.legendViterbi}</span>
       </div>
       <div class="legend-line">
         <span class="lg-title">${T.legendToss}</span>
         <span class="lg-item"><span class="sw sw-dot hollow"></span>Head</span>
         <span class="lg-item"><span class="sw sw-dot filled"></span>Tail</span>
         <span class="lg-item"><span class="sw sw-box sw-dis"></span>${T.legendDisagree}</span>
-        <span class="lg-item"><span class="sw sw-box sw-win"></span>${T.legendWindow}</span>
       </div>
     </div>
     <div class="chart-tools">
@@ -38,31 +38,16 @@ export function mountPosteriorChart(el, { onPickToss, onZoom }) {
       <span class="hint">${T.chartHelp}</span>
     </div>
     <div class="chart-wrap"><svg class="pc-svg" role="img" aria-label="Posterior probability of the Biased coin at each toss, with the Viterbi path"></svg></div>
-    <p class="note" id="pc-note"></p>`;
+    <div class="note" id="pc-note"></div>`;
 
   const svg = d3.select(el.querySelector('svg'));
   const wrap = el.querySelector('.chart-wrap');
   el.querySelector('#pc-showall').addEventListener('click', () => onZoom(null));
 
   let x = null;
-  let bandSel = null;
-  let lastWindow = null;
-
-  function updateBand(win) {
-    lastWindow = win;
-    if (!x || !bandSel || !win) return;
-    const [a, b] = win;
-    const [d0, d1] = x.domain();
-    const lo = Math.max(d0, a - 0.5);
-    const hi = Math.min(d1, b + 0.5);
-    bandSel
-      .attr('x', x(lo))
-      .attr('width', Math.max(0, x(hi) - x(lo)))
-      .attr('display', hi > lo ? null : 'none');
-  }
 
   /**
-   * v: { tosses, posterior, path, showViterbi, zoom: [a,b]|null (1-based), window: [a,b] (1-based), truePath }
+   * v: { tosses, posterior, path, zoom: [a,b]|null (1-based), truePath }
    */
   function render(v) {
     const n = v.tosses.length;
@@ -96,7 +81,7 @@ export function mountPosteriorChart(el, { onPickToss, onZoom }) {
     const hi = Math.min(n, Math.ceil(b + pad));
 
     // disagreement shading
-    const dis = v.showViterbi ? disagreements(v.posterior, v.path) : [];
+    const dis = disagreements(v.posterior, v.path);
     plot
       .append('g')
       .attr('class', 'pc-dis')
@@ -108,20 +93,15 @@ export function mountPosteriorChart(el, { onPickToss, onZoom }) {
       .attr('y', 0)
       .attr('height', h);
 
-    // trellis window band
-    bandSel = plot.append('rect').attr('class', 'pc-band').attr('y', 0).attr('height', h);
-
     // reference line
     plot.append('line').attr('class', 'pc-ref').attr('x1', 0).attr('x2', w).attr('y1', y(0.5)).attr('y2', y(0.5));
 
     // Viterbi step line
     const idx = d3.range(lo - 1, hi);
-    if (v.showViterbi) {
-      plot
-        .append('path')
-        .attr('class', 'pc-vit')
-        .attr('d', d3.line().curve(d3.curveStepAfter).x((i) => x(i + 1)).y((i) => y(v.path[i]))(idx));
-    }
+    plot
+      .append('path')
+      .attr('class', 'pc-vit')
+      .attr('d', d3.line().curve(d3.curveStepAfter).x((i) => x(i + 1)).y((i) => y(v.path[i]))(idx));
 
     // posterior line
     plot
@@ -177,7 +157,7 @@ export function mountPosteriorChart(el, { onPickToss, onZoom }) {
       .attr('text-anchor', 'middle')
       .text('toss t');
 
-    // brush-to-zoom; a plain click moves the trellis window
+    // brush-to-zoom
     const brush = d3
       .brushX()
       .extent([
@@ -192,26 +172,32 @@ export function mountPosteriorChart(el, { onPickToss, onZoom }) {
           const z1 = Math.min(n, Math.round(s1));
           brushG.call(brush.move, null);
           if (z1 - z0 >= 1) onZoom([z0, z1]);
-        } else {
-          const [px] = d3.pointer(ev.sourceEvent, root.node());
-          const t = Math.max(1, Math.min(n, Math.round(x.invert(px))));
-          onPickToss(t - 1);
         }
       });
     const brushG = root.append('g').attr('class', 'pc-brush').call(brush);
 
-    el.querySelector('#pc-vit-pending').hidden = v.showViterbi;
     el.querySelector('#pc-showall').disabled = !v.zoom;
-    el.querySelector('#pc-note').textContent = v.showViterbi ? (dis.length ? T.disagreementNote(dis.length) : T.disagreementNone) : '';
+    // the disagreements, toss by toss, so the shading can be read off
+    const listed = dis.slice(0, 6).map((t) =>
+      T.disagreementItem({
+        t,
+        toss: v.tosses[t - 1] === 0 ? 'Head' : 'Tail',
+        post: sig3(v.posterior[t - 1]),
+        alone: v.posterior[t - 1] > 0.5 ? 'Biased' : 'Fair',
+        vit: v.path[t - 1] === 1 ? 'Biased' : 'Fair',
+      }),
+    );
+    el.querySelector('#pc-note').innerHTML = dis.length
+      ? `${T.disagreementNote(dis.length)}<ul class="dis-list">${listed.map((li) => `<li>${li}</li>`).join('')}${dis.length > 6 ? `<li>${T.disagreementMore(dis.length - 6)}</li>` : ''}</ul>`
+      : T.disagreementNone;
     let agree = '';
-    if (v.truePath && v.showViterbi) {
+    if (v.truePath) {
       let k = 0;
       for (let t = 0; t < n; t++) if (v.truePath[t] === v.path[t]) k++;
       agree = T.agreement(`${((100 * k) / n).toFixed(1)}%`);
     }
     el.querySelector('#pc-agree').textContent = agree;
-    updateBand(lastWindow);
   }
 
-  return { render, updateBand };
+  return { render };
 }

@@ -1,62 +1,49 @@
-// Tab 1 — "How HMMs work": enumeration table → the three questions → trellis by hand.
+// "How HMMs work", on one screen: step bar + caption, one trellis with coin paths traced on it,
+// and the enumeration table beside the three questions — all answered by brute force. The trellis
+// passes that answer them without the list live in "Speeding it up" (../speed/).
 import { tab1 as T, app as A, parseError } from '../../content/text.js';
 import { parseTosses, tossesToString, TAB1_MAX } from '../../hmm/parse.js';
 import { argmaxRow } from '../../hmm/enumerate.js';
-import { fixed4, fmtProb } from '../../hmm/format.js';
+import { fixed4 } from '../../hmm/format.js';
 import { STATE_LETTERS, TOSS_LETTERS } from '../../hmm/model.js';
 import { renderEnumerationTable } from './enumerationTable.js';
-import { mountQuestions, renderQuestions, questionResult } from './questions.js';
-import { renderTrellisStage, stage3Steps, decodeStep } from './trellisByHand.js';
+import { mountQuestions, renderQuestions, questionResult, Q_KEYS } from './questions.js';
+import { renderPathTrellis, pathTrellisLine } from './pathTrellis.js';
 
 export function mountTab1(el, store, actions) {
   el.innerHTML = `
-    <div class="card t1-head">
-      <p class="intro">${T.intro}</p>
-      <div class="field-row">
-        <label for="t1-input">${T.inputLabel}</label>
-        <input type="text" id="t1-input" class="toss-input" maxlength="40" autocomplete="off" spellcheck="false" aria-describedby="t1-error" />
-        <span class="error" id="t1-error" role="alert"></span>
-      </div>
+    <div class="stepper t1-bar" role="group" aria-label="Step controls">
+      <label for="t1-input" class="bar-label">${T.inputLabel}</label>
+      <input type="text" id="t1-input" class="toss-input" maxlength="40" autocomplete="off" spellcheck="false"
+        title="${T.inputHint}" aria-describedby="t1-error" />
+      <span class="bar-sep" aria-hidden="true"></span>
+      <button type="button" class="btn" id="t1-back" title="${T.stepperHint}">◀ Back</button>
+      <button type="button" class="btn primary" id="t1-next" title="${T.stepperHint}">Next ▶</button>
+      <button type="button" class="btn" id="t1-reset">Reset</button>
+      <button type="button" class="btn" id="t1-fill">${T.fillAll}</button>
+      <span class="progress" id="t1-progress"></span>
+      <span class="error" id="t1-error" role="alert"></span>
     </div>
     <div class="impossible card" id="t1-impossible" hidden>${A.impossible}</div>
     <div id="t1-content">
-      <div class="stepper" role="group" aria-label="Step controls">
-        <button type="button" class="btn" id="t1-back">◀ Back</button>
-        <button type="button" class="btn primary" id="t1-next">Next ▶</button>
-        <button type="button" class="btn" id="t1-reset">Reset</button>
-        <span class="progress" id="t1-progress"></span>
-        <span class="hint">${T.stepperHint}</span>
+      <p class="caption t1-caption" id="t1-cap" aria-live="polite"></p>
+
+      <section class="card t1-trellis-card" aria-label="${T.trellisAria}">
+        <div class="trellis-wrap"><svg id="t1-trellis" class="trellis-svg" role="img" aria-label="${T.trellisAria}"></svg></div>
+        <div class="t1-under-row">
+          <div id="t1-under" aria-live="polite"></div>
+          <p class="pt-legend">${T.trellisLegend}</p>
+        </div>
+      </section>
+
+      <div class="t1-lower">
+        <section class="card t1-table-card" aria-label="${T.stageTitles[0]}">
+          <div id="t1-table" class="table-wrap"></div>
+        </section>
+        <section class="card t1-q-card" aria-label="${T.stageTitles[1]}">
+          <div id="t1-questions"></div>
+        </section>
       </div>
-
-      <section class="card stage" id="t1-stage1" aria-labelledby="t1-h1">
-        <div class="stage-head">
-          <h2 id="t1-h1">${T.stageTitles[0]}</h2>
-          <button type="button" class="btn small" id="t1-fill">${T.fillAll}</button>
-        </div>
-        <div id="t1-table" class="table-wrap"></div>
-        <p class="caption" id="t1-cap1" aria-live="polite"></p>
-      </section>
-
-      <section class="card stage" id="t1-stage2" aria-labelledby="t1-h2" hidden>
-        <div class="stage-head"><h2 id="t1-h2">${T.stageTitles[1]}</h2></div>
-        <div id="t1-questions"></div>
-        <p class="caption" id="t1-cap2" aria-live="polite"></p>
-      </section>
-
-      <section class="card stage" id="t1-stage3" aria-labelledby="t1-h3" hidden>
-        <div class="stage-head">
-          <h2 id="t1-h3">${T.stageTitles[2]}</h2>
-          <div class="seg" role="radiogroup" aria-label="${T.modeLabel}">
-            <span class="label">${T.modeLabel}</span>
-            <button type="button" class="seg-btn" data-mode="max" role="radio">${T.modeMax}</button>
-            <button type="button" class="seg-btn" data-mode="sum" role="radio">${T.modeSum}</button>
-          </div>
-        </div>
-        <h3 class="trellis-title" id="t1-trellis-title"></h3>
-        <div class="trellis-wrap"><svg id="t1-trellis" class="trellis-svg" role="img" aria-label="Trellis"></svg></div>
-        <div class="equations" id="t1-eqs" aria-live="polite"></div>
-        <p class="caption" id="t1-cap3" aria-live="polite"></p>
-      </section>
     </div>`;
 
   const $ = (sel) => el.querySelector(sel);
@@ -83,58 +70,90 @@ export function mountTab1(el, store, actions) {
   const nRows = () => 1 << store.get().t1.tosses.length;
   const nav = () => store.get().t1nav;
   const isImpossible = () => store.get().r1.fb.impossible;
-  const scrollTo = (id) => requestAnimationFrame(() => $(id).scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 
+  // Every step clears a row the user picked to trace (sel).
+  const step = (patch) => actions.setT1Nav({ sel: null, ...patch });
   const next = () => {
     if (isImpossible()) return;
     const v = nav();
-    const n = store.get().t1.tosses.length;
     if (v.stage === 1) {
-      if (v.s1 < nRows() + 1) actions.setT1Nav({ s1: v.s1 + 1 });
-      else {
-        actions.setT1Nav({ stage: 2, question: null });
-        scrollTo('#t1-stage2');
-      }
+      if (v.s1 < nRows() + 1) step({ s1: v.s1 + 1 });
+      else step({ stage: 2, question: null, rev: [] });
     } else if (v.stage === 2) {
-      actions.setT1Nav({ stage: 3, s3: 0 });
-      scrollTo('#t1-stage3');
-    } else if (v.s3 < stage3Steps(v.mode, n)) actions.setT1Nav({ s3: v.s3 + 1 });
+      const k = Q_KEYS.find((q) => !v.rev.includes(q));
+      if (k) step({ question: k, rev: [...v.rev, k] });
+      else actions.goSpeed(); // brute force is done: hand over to "Speeding it up"
+    }
   };
   const back = () => {
     if (isImpossible()) return;
     const v = nav();
-    if (v.stage === 3) {
-      if (v.s3 > 0) actions.setT1Nav({ s3: v.s3 - 1 });
-      else actions.setT1Nav({ stage: 2 });
-    } else if (v.stage === 2) actions.setT1Nav({ stage: 1, s1: nRows() + 1, question: null });
-    else if (v.s1 > 0) actions.setT1Nav({ s1: v.s1 - 1 });
+    if (v.stage === 2) {
+      if (v.rev.length > 0) {
+        const rev = v.rev.slice(0, -1);
+        step({ rev, question: rev.length ? rev[rev.length - 1] : null });
+      } else step({ stage: 1, s1: nRows() + 1, question: null });
+    } else if (v.s1 > 0) step({ s1: v.s1 - 1 });
   };
-  const reset = () => actions.setT1Nav({ stage: 1, s1: 0, question: null, s3: 0 });
+  const reset = () => step({ stage: 1, s1: 0, question: null, rev: [] });
+
+  /** A question card was clicked: answer it in Stage 2 (from Stage 1 once the table is complete). */
+  const pickQuestion = (q, patch = {}) => {
+    const v = nav();
+    if (v.stage === 1) {
+      if (v.s1 <= nRows()) return;
+      step({ stage: 2, rev: [q], question: q, ...patch });
+    } else step({ question: q, rev: v.rev.includes(q) ? v.rev : [...v.rev, q], ...patch });
+  };
+
+  // ── picking a filled table row traces it on the trellis ──
+  const tableEl = $('#t1-table');
+  const isPickable = (i) => {
+    const v = nav();
+    return i >= 0 && i < nRows() && (v.stage > 1 || i < v.s1);
+  };
+  const selectRow = (i) => {
+    if (isPickable(i) && nav().sel !== i) actions.setT1Nav({ sel: i });
+  };
+  tableEl.addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-i]');
+    if (tr) selectRow(Number(tr.dataset.i));
+  });
+  tableEl.addEventListener('keydown', (e) => {
+    const th = e.target.closest('th[data-i]');
+    if (!th) return;
+    const i = Number(th.dataset.i);
+    let j;
+    if (e.key === 'Enter' || e.key === ' ') j = i;
+    else if (e.key === 'ArrowDown') j = i + 1;
+    else if (e.key === 'ArrowUp') j = i - 1;
+    else return;
+    e.preventDefault();
+    if (!isPickable(j)) return;
+    selectRow(j);
+    tableEl.querySelector(`th[data-i="${j}"]`)?.focus();
+  });
 
   $('#t1-next').addEventListener('click', next);
   $('#t1-back').addEventListener('click', back);
   $('#t1-reset').addEventListener('click', reset);
   $('#t1-fill').addEventListener('click', () => {
-    if (nav().stage === 1) actions.setT1Nav({ s1: nRows() + 1 });
+    if (nav().stage === 1) step({ s1: nRows() + 1 });
   });
-  el.querySelectorAll('.seg-btn').forEach((b) =>
-    b.addEventListener('click', () => {
-      if (nav().mode !== b.dataset.mode) actions.setT1Nav({ mode: b.dataset.mode, s3: 0 });
-    }),
-  );
 
   mountQuestions($('#t1-questions'), {
-    onPick: (q) => actions.setT1Nav({ question: q }),
-    onToss: (t) => actions.setT1Nav({ qT: t, question: 'post' }),
+    onPick: (q) => pickQuestion(q),
+    onToss: (t) => pickQuestion('post', { qT: t }),
   });
 
   // ── render ──
   const render = (s) => {
     const { tosses } = s.t1;
-    const { table, vit, fb } = s.r1;
+    const { table, fb } = s.r1;
     const v = s.t1nav;
     const n = tosses.length;
     const R = 1 << n;
+    const tossStr = tosses.map((x) => TOSS_LETTERS[x]).join(' ');
 
     if (document.activeElement !== input) {
       input.value = tossesToString(tosses, ' ');
@@ -145,89 +164,97 @@ export function mountTab1(el, store, actions) {
     const impossible = fb.impossible;
     $('#t1-impossible').hidden = !impossible;
     $('#t1-content').hidden = impossible;
+    ['#t1-back', '#t1-next', '#t1-reset', '#t1-fill'].forEach((id) => ($(id).hidden = impossible));
+    $('#t1-progress').hidden = impossible;
     if (impossible) return;
 
-    // stage visibility
-    $('#t1-stage2').hidden = v.stage < 2;
-    $('#t1-stage3').hidden = v.stage < 3;
-    $('#t1-fill').disabled = v.stage !== 1 || v.s1 >= R + 1;
+    // controls
+    const tableDone = v.stage > 1 || v.s1 > R;
+    $('#t1-fill').disabled = v.stage !== 1 || tableDone;
     $('#t1-back').disabled = v.stage === 1 && v.s1 === 0;
-    $('#t1-next').disabled = v.stage === 3 && v.s3 >= stage3Steps(v.mode, n);
-    el.querySelectorAll('.seg-btn').forEach((b) => {
-      const on = b.dataset.mode === v.mode;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-checked', String(on));
-    });
+    // after the last question, Next hands over to "Speeding it up"
+    $('#t1-next').textContent = v.stage === 2 && v.rev.length === Q_KEYS.length ? T.toSpeed : 'Next ▶';
 
     // progress label
     let prog;
-    if (v.stage === 1) prog = `Stage 1 of 3 · ${Math.min(v.s1, R)} / ${R} rows${v.s1 > R ? ' + Sum' : ''}`;
-    else if (v.stage === 2) prog = 'Stage 2 of 3';
-    else prog = `Stage 3 of 3 · step ${v.s3} / ${stage3Steps(v.mode, n)}`;
+    if (v.stage === 1) prog = `Stage 1 of 2 · ${T.stageTitles[0]} · ${Math.min(v.s1, R)} / ${R} rows${v.s1 > R ? ' + Sum' : ''}`;
+    else prog = `Stage 2 of 2 · ${T.stageTitles[1]} · ${v.rev.length} / 3`;
     $('#t1-progress').textContent = prog;
 
-    // stage 1 table
-    const filled = v.stage === 1 ? Math.min(v.s1, R) : R;
-    const sumFilled = v.stage > 1 || v.s1 > R;
-    const complete = sumFilled;
+    const qT = Math.min(v.qT, n);
+    const qr = v.stage === 2 ? questionResult({ question: v.question, qT, table, tosses }) : null;
+    const picked = v.sel !== null && v.sel < R ? v.sel : null;
+    const pathStr = (i) => table.rows[i].states.map((x) => STATE_LETTERS[x]).join(' ');
+
+    // ── table highlight, trellis view, highlighted question card, caption ──
     let highlight = {};
-    if (v.stage === 2) highlight = questionResult({ question: v.question, qT: v.qT, table, tosses }).highlight;
-    if (v.stage === 3) {
-      const d = decodeStep(v.mode, n, v.s3);
-      if (v.mode === 'max' && d.backtrack === n) highlight = { max: argmaxRow(table) };
-      if (d.total) highlight = { sum: true };
+    let view; // what the traced trellis shows
+    let activeCard = null;
+    let caption = '';
+    const under = $('#t1-under');
+    if (v.stage === 1) {
+      view = v.s1 === 0 ? { kind: 'none' } : v.s1 <= R ? { kind: 'row', row: v.s1 - 1 } : { kind: 'all' };
+      if (v.s1 === 0) caption = T.stage1Start(R, tossStr);
+      else if (v.s1 <= R) caption = T.stage1RowShort({ index: v.s1, nRows: R }) + (v.s1 === R ? ' ' + T.stage1AllRows(R) : '');
+      else caption = T.stage1Sum({ nRows: R, tosses: tossStr, likelihood: fixed4(table.likelihood) });
+    } else {
+      highlight = qr.highlight;
+      view = qr.trellis;
+      activeCard = v.question;
+      caption = qr.caption + (v.rev.length === Q_KEYS.length && v.question ? ' ' + T.stage2Done : '');
     }
-    renderEnumerationTable($('#t1-table'), {
+    if (picked !== null) {
+      view = { kind: 'row', row: picked };
+      caption = T.stage1Picked(pathStr(picked));
+    }
+
+    renderPathTrellis($('#t1-trellis'), { params: s.params, tosses, table, view });
+    under.className = 'pt-line';
+    under.innerHTML = pathTrellisLine({ table, tosses, view });
+    $('#t1-cap').textContent = caption;
+
+    // ── enumeration table (keep keyboard focus on a picked row across the re-render) ──
+    const focusRow = tableEl.contains(document.activeElement) ? document.activeElement.dataset.i : undefined;
+    renderEnumerationTable(tableEl, {
       table,
       tosses,
-      filled,
-      sumFilled,
-      justFilled: v.stage === 1 && v.s1 >= 1 && v.s1 <= R ? v.s1 - 1 : null,
+      filled: v.stage === 1 ? Math.min(v.s1, R) : R,
+      sumFilled: tableDone,
+      justFilled: picked === null && v.stage === 1 && v.s1 >= 1 && v.s1 <= R ? v.s1 - 1 : null,
       highlight,
       maxRow: argmaxRow(table),
-      complete,
+      complete: tableDone,
+      clickable: true,
+      selected: view.kind === 'row' && !view.viterbi ? view.row : null,
     });
+    if (focusRow !== undefined) tableEl.querySelector(`th[data-i="${focusRow}"]`)?.focus();
 
-    // stage 1 caption
-    const tossStr = tosses.map((x) => TOSS_LETTERS[x]).join(' ');
-    let cap1;
-    if (v.stage > 1 || v.s1 > R) cap1 = T.stage1Sum({ nRows: R, tosses: tossStr, likelihood: fixed4(table.likelihood) });
-    else if (v.s1 === 0) cap1 = T.stage1Start(R, tossStr);
-    else {
-      const row = table.rows[v.s1 - 1];
-      const factors = row.factors.map((f) => `(${fmtProb(f.trans, f.isStart ? 1 : 2)} · ${fmtProb(f.emit, 1)})`).join(' × ');
-      cap1 = T.stage1Row({ index: v.s1, nRows: R, path: row.states.map((x) => STATE_LETTERS[x]).join(' '), tosses: tossStr, factors, joint: fixed4(row.joint) });
-      if (v.s1 === R) cap1 += ' ' + T.stage1AllRows(R);
-    }
-    $('#t1-cap1').textContent = cap1;
-
-    // stage 2
-    if (v.stage >= 2) {
-      renderQuestions($('#t1-questions'), { question: v.question, qT: Math.min(v.qT, n), n });
-      $('#t1-cap2').textContent = questionResult({ question: v.question, qT: Math.min(v.qT, n), table, tosses }).caption;
-    }
-
-    // stage 3
-    if (v.stage === 3) {
-      renderTrellisStage({
-        svgEl: $('#t1-trellis'),
-        titleEl: $('#t1-trellis-title'),
-        eqEl: $('#t1-eqs'),
-        captionEl: $('#t1-cap3'),
-        params: s.params,
-        tosses,
-        vit,
-        fb,
-        mode: v.mode,
-        s3: v.s3,
-      });
-    }
+    // ── the three questions ──
+    renderQuestions($('#t1-questions'), {
+      active: activeCard,
+      rev: v.stage === 2 ? v.rev : [],
+      inactive: !tableDone,
+      qT,
+      table,
+      tosses,
+    });
   };
 
   store.subscribe((s, prev) => {
     if (s.t1 !== prev.t1 || s.r1 !== prev.r1 || s.t1nav !== prev.t1nav || s.params !== prev.params) render(s);
   });
   render(store.get());
+
+  // the trellis spreads its columns to the card width; redraw when that changes
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => render(store.get()), 80);
+  });
+  // a hidden tab measures 0 wide; redraw when this tab becomes visible
+  store.subscribe((s, prev) => {
+    if (s.tab === 'how' && prev.tab !== 'how') render(s);
+  });
 
   return {
     keys: {
