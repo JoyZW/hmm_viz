@@ -4,7 +4,7 @@ A static, browser-based teaching tool for hidden Markov models. A dealer tosses 
 
 - **How HMMs work** (1–4 tosses): enumeration table → the three questions, answered by brute force.
 - **Speeding it up** (same tosses): the three questions answered by the trellis passes — forward (Q1), forward + backward (Q2), Viterbi + backtrack (Q3) — each checked against brute force.
-- **Posterior vs Viterbi path** (1–5000 tosses): “which coin at each toss?”, with a reading guide and the disagreements listed.
+- **Posterior vs Viterbi path** (1–5000 tosses): “which coin at each toss?”, with a reading guide.
 - **Long sequences** (same tosses): the precision comparison drawn — how small the numbers get against the smallest double, where naive breaks, and what rescaled / log-space store instead — plus the table.
 
 The full brief is in [SPEC.md](SPEC.md); the vocabulary is in [CONTEXT.md](CONTEXT.md).
@@ -66,7 +66,7 @@ To change any wording, edit `src/content/text.js` only.
 - **Keyboard:** ← / → step back / forward in the active tab. Space is Next in "How HMMs work" and "Speeding it up" ("Long sequences" has no stepping). Keys are ignored while typing in a text field.
 - **Tab 1 Stage 1:** each Next fills one row; its factor cells then its joint probability fade in left to right.
 - **Speeding it up:** arrows into not-yet-computed nodes are drawn grey and dashed so the whole trellis structure is visible from the start. Each question remembers its own step; the answer card's ✓ is computed by comparing with the enumeration table, not hard-coded.
-- **Long sequences** has no step-by-step trellis (that is “Speeding it up”); its chart is always fully drawn, with a reading guide worded from the current parameters and the disagreements listed toss by toss.
+- **Posterior vs Viterbi path** has no step-by-step trellis (that is “Speeding it up”); its chart is always fully drawn, with a reading guide worded from the current parameters.
 - **Overview strip** row 1 is "best so far" (argmax δₜ per revealed column). Row 2 fills in from the right during the backtrack.
 - **Disagreement shading** appears together with the Viterbi step line, i.e. once the backtrack finishes (or after ⏭ ⏭).
 - **Precision panel:** "NaN posteriors" counts every non-finite posterior. "Smallest nonzero value stored" has no meaning for log-space, which stores logarithms, so that column shows the smallest ln value instead.

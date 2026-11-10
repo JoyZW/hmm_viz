@@ -1,7 +1,6 @@
 // Tab 2 — "Which coin at each toss?": posterior vs Viterbi path (matches docs/img/posterior-chart.png at short lengths).
 import * as d3 from 'd3';
 import { tab2 as T } from '../../content/text.js';
-import { sig3 } from '../../hmm/format.js';
 
 const M = { top: 12, right: 18, bottom: 58, left: 52 };
 const HEIGHT = 300;
@@ -37,8 +36,7 @@ export function mountPosteriorChart(el, { onZoom }) {
       <button type="button" class="btn small" id="pc-showall">${T.showAll}</button>
       <span class="hint">${T.chartHelp}</span>
     </div>
-    <div class="chart-wrap"><svg class="pc-svg" role="img" aria-label="Posterior probability of the Biased coin at each toss, with the Viterbi path"></svg></div>
-    <div class="note" id="pc-note"></div>`;
+    <div class="chart-wrap"><svg class="pc-svg" role="img" aria-label="Posterior probability of the Biased coin at each toss, with the Viterbi path"></svg></div>`;
 
   const svg = d3.select(el.querySelector('svg'));
   const wrap = el.querySelector('.chart-wrap');
@@ -177,19 +175,6 @@ export function mountPosteriorChart(el, { onZoom }) {
     const brushG = root.append('g').attr('class', 'pc-brush').call(brush);
 
     el.querySelector('#pc-showall').disabled = !v.zoom;
-    // the disagreements, toss by toss, so the shading can be read off
-    const listed = dis.slice(0, 6).map((t) =>
-      T.disagreementItem({
-        t,
-        toss: v.tosses[t - 1] === 0 ? 'Head' : 'Tail',
-        post: sig3(v.posterior[t - 1]),
-        alone: v.posterior[t - 1] > 0.5 ? 'Biased' : 'Fair',
-        vit: v.path[t - 1] === 1 ? 'Biased' : 'Fair',
-      }),
-    );
-    el.querySelector('#pc-note').innerHTML = dis.length
-      ? `${T.disagreementNote(dis.length)}<ul class="dis-list">${listed.map((li) => `<li>${li}</li>`).join('')}${dis.length > 6 ? `<li>${T.disagreementMore(dis.length - 6)}</li>` : ''}</ul>`
-      : T.disagreementNone;
     let agree = '';
     if (v.truePath) {
       let k = 0;

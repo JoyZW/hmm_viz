@@ -226,12 +226,6 @@ export const tab2 = {
   legendDisagree: 'Viterbi ≠ most likely coin at that toss',
   showAll: 'Show all',
   chartHelp: 'Drag across the chart to zoom in; “Show all” zooms back out.',
-  disagreementNote: (count) =>
-    `${count} shaded toss${count === 1 ? '' : 'es'}: the Viterbi path disagrees with the posterior's most likely coin there. No contradiction — the Viterbi path is the single best whole coin path, while the posterior answers about each toss separately, adding up every path.`,
-  disagreementItem: ({ t, toss, post, alone, vit }) =>
-    `toss ${t} (${toss}): posterior ${post}, so on its own ${alone} is more likely; the Viterbi path says ${vit}.`,
-  disagreementMore: (k) => `… and ${k} more.`,
-  disagreementNone: 'Here the Viterbi path agrees with the posterior’s most likely coin at every toss.',
 
   precisionExplain:
     'Every method computes the same quantities, but a product of n probabilities shrinks roughly like 0.5ⁿ and drops below the smallest double (about 10⁻³⁰⁸) after roughly a thousand tosses. Then naive forward–backward stores exact zeros, so the likelihood is 0 and every posterior is 0/0 = NaN; naive Viterbi compares 0 against 0, the tie-break (prefer F) picks F, and the path is silently wrong — not NaN. Rescaled and log-space keep every value representable and agree.',

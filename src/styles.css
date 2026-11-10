@@ -403,7 +403,6 @@ textarea { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; width:
 .read-list .k-post { color: var(--posterior); }
 .read-list .k-vit { color: var(--viterbi); }
 .read-list .k-dis { background: var(--disagree); padding: 0 4px; border-radius: 3px; }
-.dis-list { margin: 4px 0 0; padding-left: 18px; }
 
 /* Long sequences: precision chart */
 .pc-legend { margin: 4px 0; font-size: 13px; justify-content: flex-start; }

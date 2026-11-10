@@ -399,7 +399,7 @@ Matches `docs/img/posterior-chart.png` (§0.1) at short lengths: x = toss t, y �
 - **Always fully computed and shown**, including the Viterbi step line (nothing is stepped through).
 - **Scaling to long sequences:** when ≤ 100 tosses are in the visible x-range, draw a marker per toss (filled = Tail, hollow = Head). Above that, draw only the line, and show H/T as a thin rug of tick marks under the x-axis.
 - **Zoom:** brush-to-zoom on the x-axis and a "Show all" reset; the x-range defaults to the full sequence.
-- **Disagreement shading**: shade the background at tosses where the Viterbi path's state differs from the per-toss most likely coin (posterior > 0.5 ⇒ B, < 0.5 ⇒ F; exactly 0.5 is not a disagreement). Under the chart, a note explains why (the Viterbi path is the single best *whole* path; the posterior answers about *each toss separately*) and lists the disagreements toss by toss (up to six, then "… and k more"), e.g. "toss 8 (Tail): posterior 0.459, so on its own Fair is more likely; the Viterbi path says Biased." In the 20-toss lecture example this shades exactly tosses 8 (0.459) and 14 (0.497).
+- **Disagreement shading**: shade the background at tosses where the Viterbi path's state differs from the per-toss most likely coin (posterior > 0.5 ⇒ B, < 0.5 ⇒ F; exactly 0.5 is not a disagreement). There is no text under the chart; the reading guide's fourth bullet explains the shading. In the 20-toss lecture example this shades exactly tosses 8 (0.459) and 14 (0.497).
 - If a true path exists (simulated sequence), report Viterbi agreement with the true coin above the chart.
 
 ### 7.4 Tab "Long sequences": precision comparison
@@ -503,7 +503,7 @@ More than two coin states or more than two symbols; parameter learning (Baum–W
 - [ ] Tab 1 with TTH: each Stage 1 step traces the filled row on the trellis (FFF first: 0.5 · 0.5 × 0.95 · 0.5 × 0.95 · 0.5 = 0.0564, matching `docs/img/path_trellis.png` (§0.1)), and clicking a filled row traces it.
 - [ ] Tab 1 with TTH: stepping through reproduces `docs/img/output-table.png` (§0.1) row by row, the question cards (`docs/img/three_questions.png`) fill 0.1389 / 0.434 (Pr(F) 0.566) / FFF one Next at a time, and after Q3 Next reads "Speeding it up →" and opens that tab on Q1.
 - [ ] "Speeding it up" with TTH: Q1 reproduces α₂ = 0.164 / 0.335 and ends at 0.1389 ✓; Q2 starts with α filled, gives β₂ = 0.48 / 0.18, β₁ = 0.236 / 0.178 and posteriors 0.575 / 0.434 / 0.199 ✓; Q3 reproduces the numbers and arrow fading of `docs/img/hidden_path.png` (§0.1) and ends on F F F, 0.0564 ✓. No page scrolling at 1440×900 for n ≤ 3 at any step.
-- [ ] Tab 2 with the 20-toss example reproduces `docs/img/posterior-chart.png` (§0.1): the plotted posteriors equal §10's values, Heads hollow at tosses 2, 4, 7, 14, the Viterbi line rises at toss 8; tosses 8 and 14 shaded and listed under the chart; the reading guide is shown above it.
+- [ ] Tab 2 with the 20-toss example reproduces `docs/img/posterior-chart.png` (§0.1): the plotted posteriors equal §10's values, Heads hollow at tosses 2, 4, 7, 14, the Viterbi line rises at toss 8; tosses 8 and 14 shaded; the reading guide is shown above it.
 - [ ] Tab 2 at n = 5000: simulate, brush-zoom and "Show all" stay responsive.
 - [ ] Precision panel at n = 2000 shows naive failing (NaN posteriors, −∞ log-likelihood, wrong Viterbi tosses) while rescaled and log agree.
 - [ ] Changing any parameter recomputes both tabs; a copied URL reopens the same tab, parameters and sequence.
